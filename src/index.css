@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Token colore: tema chiaro di default, scuro da preferenza di sistema o data-theme="dark". */
+:root {
+  --bg: #f2f4f9; --surface: #ffffff; --surface-2: #eceff7; --ink: #121a2b; --muted: #59637a;
+  --line: #dce1ec; --track: #e1e6f0; --accent: #2447d4; --accent-soft: #e5eafc; --accent-ink: #ffffff;
+  --good: #12784b; --good-soft: #dff2e8; --warn: #a86300; --warn-soft: #fbeed6; --bad: #bf3526; --bad-soft: #fbe2de;
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1120; --surface: #141b2d; --surface-2: #1b2438; --ink: #e7ebf4; --muted: #98a2b8;
+    --line: #263049; --track: #263049; --accent: #8098ff; --accent-soft: #1d2850; --accent-ink: #0c1120;
+    --good: #4fc98d; --good-soft: #11301f; --warn: #f0b04a; --warn-soft: #33260c; --bad: #ff7d6e; --bad-soft: #3a1814;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1120; --surface: #141b2d; --surface-2: #1b2438; --ink: #e7ebf4; --muted: #98a2b8;
+  --line: #263049; --track: #263049; --accent: #8098ff; --accent-soft: #1d2850; --accent-ink: #0c1120;
+  --good: #4fc98d; --good-soft: #11301f; --warn: #f0b04a; --warn-soft: #33260c; --bad: #ff7d6e; --bad-soft: #3a1814;
+  color-scheme: dark;
+}
+
+html, body { background: var(--bg); color: var(--ink); }
+body { margin: 0; font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; overflow-x: hidden; }
+
+.wrap {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+.radar::after {
+  content: ""; position: absolute; inset: 6px; border-radius: 9999px;
+  background: conic-gradient(var(--accent), transparent 70%);
+  animation: spin 1.2s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .radar::after { animation: none; }
+  * { transition: none !important; }
+}

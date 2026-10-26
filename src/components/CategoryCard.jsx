@@ -2,7 +2,7 @@ import { TONE, band, categoryScore } from "../lib/scoring.js";
 import Pill from "./Pill.jsx";
 import Level from "./Level.jsx";
 
-export default function CategoryCard({ cat, model, status, open, onToggle, onFlip }) {
+export default function CategoryCard({ cat, model, status, auto = {}, open, onToggle, onFlip }) {
   const score = categoryScore(cat, status);
   const b = band(score);
   const failed = cat.checks.filter((k) => !status[k.id]).length;
@@ -40,7 +40,10 @@ export default function CategoryCard({ cat, model, status, open, onToggle, onFli
                       {ok ? "OK" : "KO"}
                     </button>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-ink">{k.label}</p>
+                      <p className="text-sm font-medium text-ink">
+                        {k.label}
+                        {auto[k.id] && <span className="ml-2 rounded bg-accent-soft px-1.5 py-0.5 align-middle font-mono text-[10px] font-semibold text-accent" title="Verificato con dati reali di PageSpeed Insights">PSI</span>}
+                      </p>
                       {!ok && <p className="mt-1 text-sm text-muted">{k.fail}</p>}
                       {!ok && (
                         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">

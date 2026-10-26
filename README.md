@@ -30,11 +30,31 @@ Tool di audit e consulenza della visibilità online per qualsiasi azienda o sito
 - Fasce: 75+ Solido, 50-74 Da rafforzare, sotto 50 Critico.
 - **Quick wins**: controlli non superati con sforzo basso e impatto medio-alto.
 
-## Importante: analisi simulata
+## Dati reali e parti simulate
 
-La versione attuale **non legge il sito reale**: lo stato iniziale dei controlli è generato in modo deterministico dal dominio e dal modello (stesso input, stesso risultato). Dopo una verifica manuale, ogni controllo si corregge con il bottone OK/KO e punteggi, quick wins e piano si aggiornano subito.
+Inserendo un **dominio** (es. `gommistaverdi.it`) il tool interroga l'API gratuita **PageSpeed Insights** (mobile) e verifica in automatico 6 controlli, segnati con l'etichetta **PSI**:
 
-Strumenti utili per la verifica: PageSpeed Insights, Google Search Console, scheda Google Business Profile, profili social del cliente.
+| Controllo | Fonte |
+|---|---|
+| LCP sotto 2,5 s | dati utenti reali Chrome, altrimenti laboratorio |
+| Reattività (INP sotto 200 ms) | INP reale, altrimenti Total Blocking Time di laboratorio |
+| CLS sotto 0,1 | dati utenti reali, altrimenti laboratorio |
+| Esperienza mobile | audit Lighthouse viewport, dimensione font, aree di tocco |
+| HTTPS | audit Lighthouse |
+| Title e meta description | audit Lighthouse |
+
+Vengono mostrati anche i punteggi Performance, SEO tecnica e Best practice.
+
+Tutti gli altri controlli (reputazione, social, contenuti, backlink, ecc.) sono **stimati in modo deterministico** dal dominio e dal modello (stesso input, stesso risultato). Vanno verificati a mano e corretti con il bottone OK/KO: punteggi, quick wins e piano si aggiornano subito. Se Google non risponde, o si inserisce un nome azienda invece di un dominio, il tool ripiega sulla simulazione e lo segnala con un avviso.
+
+## Configurare la chiave PageSpeed
+
+1. Console Google Cloud: abilita **PageSpeed Insights API** e crea una **chiave API**.
+2. Limita la chiave: restrizione applicazione **Referrer HTTP** (`https://wrz89.github.io/*`, `http://localhost:5173/*`) e restrizione API alla sola PageSpeed Insights API.
+3. In locale: copia `.env.example` in `.env` e inserisci la chiave (il file è ignorato da git).
+4. Su GitHub: *Settings → Secrets and variables → Actions → New repository secret*, nome `PSI_API_KEY`. Il workflow la passa alla build come `VITE_PSI_API_KEY`.
+
+La chiave finisce comunque nel codice JavaScript del sito pubblico: la protezione sono le restrizioni al punto 2, non la segretezza.
 
 ## Avvio in locale
 
@@ -62,7 +82,8 @@ Ogni push su `main` esegue il workflow `.github/workflows/deploy.yml` e pubblica
 src/
   data/audit.js          modelli, aree, controlli, consigli strategici
   lib/scoring.js         simulazione, punteggi, quick wins, piano d'azione
-  components/            Gauge, Pill, Level, CategoryCard, LoadingPanel
+  lib/psi.js             chiamata a PageSpeed Insights e mappatura sui controlli
+  components/            Gauge, Pill, Level, CategoryCard, LoadingPanel, PsiPanel
   App.jsx                interfaccia principale
   index.css              token colore (tema chiaro e scuro) e stili base
 ```
@@ -71,7 +92,6 @@ Per modificare controlli, pesi o consigli basta intervenire su `src/data/audit.j
 
 ## Evoluzioni possibili
 
-1. Integrazione reale con l'API di PageSpeed Insights per i Core Web Vitals (richiede una funzione lato server per la chiave API).
-2. Lettura di title, meta, H1 e dati strutturati della home tramite una funzione lato server.
-3. Salvataggio degli audit (es. Supabase) per confrontare i punteggi nel tempo.
-4. Export del piano in PDF.
+1. Lettura di H1, dati strutturati, sitemap e link della home tramite una funzione lato server (il browser non può leggere siti di altri domini).
+2. Salvataggio degli audit (es. Supabase) per confrontare i punteggi nel tempo.
+3. Export del piano in PDF.

@@ -1,6 +1,6 @@
 import { LOADING_STEPS } from "../data/audit.js";
 
-export default function LoadingPanel({ domain, progress, step }) {
+export default function LoadingPanel({ domain, progress, step, real }) {
   return (
     <div className="rounded-xl border border-line bg-surface p-6 sm:p-8" aria-live="polite">
       <div className="flex items-center gap-3">
@@ -8,6 +8,7 @@ export default function LoadingPanel({ domain, progress, step }) {
         <div className="min-w-0">
           <p className="font-display text-lg font-semibold text-ink">Analisi di {domain}</p>
           <p className="text-sm text-muted">{LOADING_STEPS[Math.min(step, LOADING_STEPS.length - 1)]}…</p>
+          {real && <p className="mt-1 text-xs text-muted">Test reale su Google PageSpeed: servono di solito 20-40 secondi.</p>}
         </div>
         <span className="ml-auto font-mono text-sm tabular-nums text-muted">{Math.round(progress)}%</span>
       </div>

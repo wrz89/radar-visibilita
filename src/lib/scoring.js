@@ -1,4 +1,5 @@
 import { MODELS, CATEGORIES } from "../data/audit.js";
+import { fmtMs, fmtCls } from "./psi.js";
 
 export function hashStr(s) {
   let h = 2166136261;
@@ -108,6 +109,13 @@ export function buildPlan(result) {
     const s = categoryScore(c, status);
     L.push(`- ${c.name}: ${s}/100 · peso ${c.weights[model]}%`);
   });
+  if (result.psi) {
+    const p = result.psi;
+    L.push("");
+    L.push("DATI REALI PAGESPEED INSIGHTS (mobile)");
+    L.push(`- Performance ${p.perf ?? "n.d."}/100 · SEO tecnica ${p.seo ?? "n.d."}/100 · Best practice ${p.bestPractices ?? "n.d."}/100`);
+    L.push(`- LCP ${fmtMs(p.lcp)} (${p.lcpSource}) · CLS ${fmtCls(p.cls)} (${p.clsSource}) · ${p.inp != null ? "INP " + p.inp + " ms (utenti reali)" : "TBT " + (p.tbt != null ? Math.round(p.tbt) + " ms (laboratorio)" : "n.d.")}`);
+  }
   L.push("");
   L.push("FASE 1 · 0-30 GIORNI – QUICK WINS");
   if (wins.length === 0) L.push("- Nessun intervento rapido aperto.");

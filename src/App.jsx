@@ -6,6 +6,8 @@ import Pill from "./components/Pill.jsx";
 import Level from "./components/Level.jsx";
 import CategoryCard from "./components/CategoryCard.jsx";
 import LoadingPanel from "./components/LoadingPanel.jsx";
+import PsiPanel from "./components/PsiPanel.jsx";
+import { PSI_KEY, toUrl, fetchPsi } from "./lib/psi.js";
 
 export default function App() {
   const [input, setInput] = useState("");
@@ -25,25 +27,55 @@ export default function App() {
 
   const step = Math.floor((progress / 100) * LOADING_STEPS.length);
 
+  // Analisi reale solo se l'input è un dominio e la chiave è configurata.
+  const wantsReal = pending ? Boolean(toUrl(pending.domain)) : false;
+  const realActive = wantsReal && Boolean(PSI_KEY);
+
   useEffect(() => {
     if (phase !== "loading") return;
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const total = reduce ? 600 : 3600;
+    const minTime = reduce ? 600 : 3600;
     const start = Date.now();
+    const job = { done: !realActive, data: null, error: null };
+    if (realActive) {
+      fetchPsi(pending.domain)
+        .then((d) => { job.data = d; })
+        .catch((e) => { job.error = e; })
+        .finally(() => { job.done = true; });
+    }
     const t = setInterval(() => {
-      const p = Math.min(100, ((Date.now() - start) / total) * 100);
-      setProgress(p);
-      if (p >= 100) {
+      const el = Date.now() - start;
+      if (job.done && el >= minTime) {
         clearInterval(t);
+        setProgress(100);
         const status = simulate(pending.domain, pending.model);
-        const r = { ...pending, status, isExample: false };
-        setResult(r);
+        const auto = {};
+        let psi = null;
+        let notice = "";
+        if (job.data) {
+          psi = job.data;
+          Object.entries(job.data.checks).forEach(([id, ok]) => { status[id] = ok; auto[id] = true; });
+        } else if (job.error) {
+          notice = job.error.message + " Il risultato mostrato è una simulazione.";
+        } else if (wantsReal && !PSI_KEY) {
+          notice = "Chiave PageSpeed non configurata in questa versione: il risultato mostrato è una simulazione.";
+        } else if (!wantsReal) {
+          notice = "Hai inserito un nome azienda e non un dominio: senza indirizzo del sito non posso interrogare Google, quindi il risultato è una simulazione.";
+        }
+        setResult({ ...pending, status, auto, psi, notice, isExample: false });
         const weakest = [...CATEGORIES].sort((a, b) => categoryScore(a, status) - categoryScore(b, status))[0];
         setOpenCat(weakest.id);
         setShowPlan(false);
         setPhase("done");
+        return;
       }
-    }, 60);
+      const p = job.done
+        ? Math.min(100, (el / minTime) * 100)
+        : realActive
+          ? Math.min(92, 92 * (1 - Math.exp(-el / 14000)))
+          : Math.min(100, (el / minTime) * 100);
+      setProgress((prev) => Math.max(prev, p));
+    }, 100);
     return () => clearInterval(t);
   }, [phase, pending]);
 
@@ -136,7 +168,7 @@ export default function App() {
           {error && <p className="mt-3 text-sm font-medium text-bad">{error}</p>}
         </form>
 
-        {phase === "loading" && pending && <LoadingPanel domain={pending.domain} progress={progress} step={step} />}
+        {phase === "loading" && pending && <LoadingPanel domain={pending.domain} progress={progress} step={step} real={realActive} />}
 
         {phase === "done" && (
           <>
@@ -144,6 +176,10 @@ export default function App() {
               <p className="rounded-lg border border-line bg-surface-2 px-4 py-3 text-sm text-muted">
                 <strong className="text-ink">Esempio dimostrativo</strong> su un'officina locale fittizia. Inserisci un dominio sopra per avviare la tua analisi.
               </p>
+            )}
+
+            {result.notice && (
+              <p className="rounded-lg border border-line bg-warn-soft px-4 py-3 text-sm text-warn" role="status">{result.notice}</p>
             )}
 
             {/* SINTESI */}
@@ -180,10 +216,14 @@ export default function App() {
                   })}
                 </ul>
                 <p className="mt-4 text-xs leading-relaxed text-muted">
-                  I segnali sono stimati dalla simulazione. Dopo la verifica reale, clicca su OK/KO accanto a ogni controllo per correggerlo: punteggi, quick wins e piano si aggiornano subito.
+                  {result.psi
+                    ? "I controlli con etichetta PSI vengono da dati reali di Google; tutti gli altri sono stimati. Dopo la verifica manuale, clicca su OK/KO per correggerli: punteggi, quick wins e piano si aggiornano subito."
+                    : "I segnali sono stimati dalla simulazione. Dopo la verifica reale, clicca su OK/KO accanto a ogni controllo per correggerlo: punteggi, quick wins e piano si aggiornano subito."}
                 </p>
               </div>
             </section>
+
+            {result.psi && <PsiPanel psi={result.psi} />}
 
             {/* QUICK WINS */}
             <section className="rounded-xl border border-line bg-surface p-5">
@@ -218,7 +258,7 @@ export default function App() {
               {[...CATEGORIES].sort((a, b2) => b2.weights[result.model] - a.weights[result.model]).map((c) => (
                 <div key={c.id} id={"cat-" + c.id} className="scroll-mt-4">
                   <CategoryCard
-                    cat={c} model={result.model} status={result.status} open={openCat === c.id}
+                    cat={c} model={result.model} status={result.status} auto={result.auto} open={openCat === c.id}
                     onToggle={() => setOpenCat(openCat === c.id ? null : c.id)} onFlip={flip}
                   />
                 </div>
@@ -255,7 +295,7 @@ export default function App() {
         )}
 
         <footer className="pb-4 text-xs text-muted">
-          Simulazione deterministica: lo stesso dominio con lo stesso modello restituisce sempre lo stesso risultato. Per dati reali verifica con PageSpeed Insights, Google Search Console e la scheda Google Business Profile, poi correggi i controlli.
+          Performance, Core Web Vitals, HTTPS, esperienza mobile e title/meta sono letti da Google PageSpeed Insights quando si inserisce un dominio. Gli altri controlli sono stimati in modo deterministico (stesso dominio e modello, stesso risultato): verificali con Google Search Console, la scheda Google Business Profile e i profili social, poi correggili con OK/KO.
         </footer>
       </main>
     </div>

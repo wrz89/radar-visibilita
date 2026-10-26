@@ -85,7 +85,13 @@ export function parsePsi(json) {
   if (inp != null) checks.ux2 = inp <= 200;
   else if (tbt != null) checks.ux2 = tbt <= 200;
   if (cls != null) checks.ux3 = cls <= 0.1;
-  const mobile = ["viewport", "font-size", "tap-targets"].map(pass).filter((v) => v !== null);
+  const MOBILE = {
+    viewport: "manca l'adattamento allo schermo del telefono (viewport)",
+    "font-size": "testi troppo piccoli da leggere",
+    "tap-targets": "pulsanti e link troppo vicini tra loro",
+  };
+  const mobileFails = Object.keys(MOBILE).filter((id) => pass(id) === false).map((id) => MOBILE[id]);
+  const mobile = Object.keys(MOBILE).map(pass).filter((v) => v !== null);
   if (mobile.length) checks.ux4 = mobile.every(Boolean);
   const https = pass("is-on-https");
   if (https !== null) checks.ux7 = https;
@@ -104,6 +110,10 @@ export function parsePsi(json) {
     inp,
     tbt: tbt != null ? tbt : null,
     finalUrl: lr.finalUrl || null,
+    titleOk: title,
+    metaOk: meta,
+    httpsOk: https,
+    mobileFails,
     checks,
   };
 }
@@ -132,4 +142,32 @@ export function fmtMs(ms) {
 
 export function fmtCls(v) {
   return v == null ? "n.d." : v.toLocaleString("it-IT", { maximumFractionDigits: 2 });
+}
+
+// Frase che spiega cosa è stato misurato per un controllo verificato in automatico.
+export function measuredNote(id, psi) {
+  if (!psi) return null;
+  switch (id) {
+    case "ux1":
+      return psi.lcp == null ? null : `Misurato: ${fmtMs(psi.lcp)} (${psi.lcpSource}). Obiettivo: sotto 2,5 s.`;
+    case "ux2":
+      if (psi.inp != null) return `Misurato: INP ${psi.inp} ms (utenti reali). Obiettivo: sotto 200 ms.`;
+      return psi.tbt == null ? null : `Misurato: blocco degli script ${Math.round(psi.tbt)} ms (laboratorio). Obiettivo: sotto 200 ms.`;
+    case "ux3":
+      return psi.cls == null ? null : `Misurato: CLS ${fmtCls(psi.cls)} (${psi.clsSource}). Obiettivo: sotto 0,1.`;
+    case "ux4":
+      return psi.mobileFails.length ? `Problemi rilevati: ${psi.mobileFails.join("; ")}.` : "Misurato: adattamento al telefono, testi e pulsanti in regola.";
+    case "ux7":
+      return psi.httpsOk ? "Misurato: il sito usa HTTPS." : "Misurato: il sito non usa HTTPS o carica risorse non sicure.";
+    case "seo1": {
+      const miss = [];
+      if (psi.titleOk === false) miss.push("title");
+      if (psi.metaOk === false) miss.push("meta description");
+      return miss.length
+        ? `Misurato sulla pagina analizzata: manca ${miss.join(" e ")}.`
+        : "Misurato sulla pagina analizzata: title e meta description presenti (l'unicità tra pagine va verificata a mano).";
+    }
+    default:
+      return null;
+  }
 }

@@ -30,6 +30,26 @@ Tool di audit e consulenza della visibilità online per qualsiasi azienda o sito
 - Fasce: 75+ Solido, 50-74 Da rafforzare, sotto 50 Critico.
 - **Quick wins**: controlli non superati con sforzo basso e impatto medio-alto.
 
+## Cosa si può inserire
+
+Basta anche un solo campo, ma più canali si aggiungono più l'analisi è completa:
+
+| Campo | Cosa succede |
+|---|---|
+| Nome azienda | Titolo del report |
+| Sito web | Misurato in automatico da PageSpeed Insights |
+| Scheda Google, Facebook, Instagram, LinkedIn | Mostrati nel report con link di apertura e verifica guidata |
+| Altri link | TikTok, YouTube, altri siti: si possono incollare più link separati da spazio |
+
+Ogni link viene **riconosciuto da solo**: se un link Facebook finisce nel campo sito, o un link Google Maps nel campo Instagram, viene messo al posto giusto. Google, Facebook e Instagram non si possono leggere in automatico da un sito esterno, quindi per questi canali c'è la **verifica rapida**: poche domande Sì/No con link di apertura, che aggiornano subito punteggi, quick wins e piano.
+
+## Come sono spiegati i problemi
+
+- **In sintesi**: cosa funziona, i 3 problemi che pesano di più, da dove partire.
+- Per ogni controllo non superato: cosa non va, perché conta, passi per risolverlo, priorità (alta, media, bassa) e tempo indicativo.
+- I controlli misurati da Google mostrano il valore reale accanto all'obiettivo (es. LCP 4,2 s, obiettivo sotto 2,5 s).
+- Ogni dato è etichettato: **PSI** (misurato), **Verificato** (confermato da te), **stima** (simulato). Il contatore nel punteggio globale dice quanti controlli sono verificati.
+
 ## Dati reali e parti simulate
 
 Inserendo un **dominio** (es. `gommistaverdi.it`) il tool interroga l'API gratuita **PageSpeed Insights** (mobile) e verifica in automatico 6 controlli, segnati con l'etichetta **PSI**:
@@ -83,7 +103,9 @@ src/
   data/audit.js          modelli, aree, controlli, consigli strategici
   lib/scoring.js         simulazione, punteggi, quick wins, piano d'azione
   lib/psi.js             chiamata a PageSpeed Insights e mappatura sui controlli
-  components/            Gauge, Pill, Level, CategoryCard, LoadingPanel, PsiPanel
+  lib/channels.js        riconoscimento dei link (sito, Google, social) e raccolta del modulo
+  data/explain.js        perché conta e come risolvere, per ogni controllo
+  components/            Gauge, Pill, Level, CategoryCard, LoadingPanel, PsiPanel, Summary, ChannelsPanel, Priority
   App.jsx                interfaccia principale
   index.css              token colore (tema chiaro e scuro) e stili base
 ```

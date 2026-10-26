@@ -1,5 +1,7 @@
 import { MODELS, CATEGORIES } from "../data/audit.js";
 import { fmtMs, fmtCls } from "./psi.js";
+import { TIME } from "../data/explain.js";
+import { TYPE_LABEL } from "./channels.js";
 
 export function hashStr(s) {
   let h = 2166136261;
@@ -55,9 +57,9 @@ export function overallScore(model, status) {
 }
 
 export function band(score) {
-  if (score >= 75) return { label: "Solido", tone: "good" };
-  if (score >= 50) return { label: "Da rafforzare", tone: "warn" };
-  return { label: "Critico", tone: "bad" };
+  if (score >= 75) return { label: "Solido", tone: "good", desc: "Ben messa: mantieni il livello e ricontrolla ogni trimestre.", globalDesc: "La presenza online è ben impostata: ora conta mantenerla e colmare le ultime lacune." };
+  if (score >= 50) return { label: "Da rafforzare", tone: "warn", desc: "Buone basi, ma ci sono lacune che frenano i risultati: parti dai problemi ad alta priorità.", globalDesc: "Buone basi, ma alcune lacune frenano contatti e vendite: con pochi interventi mirati il punteggio sale in fretta." };
+  return { label: "Critico", tone: "bad", desc: "Oggi frena la visibilità: è qui che conviene intervenire per primo.", globalDesc: "Oggi si perdono molte occasioni di essere trovati e scelti: serve intervenire sulle basi prima di investire in pubblicità." };
 }
 
 export const TONE = {
@@ -86,10 +88,57 @@ export function quickWins(status, model) {
   return wins.sort((a, b) => priority(b) - priority(a)).slice(0, 4);
 }
 
+export const CHECK_BY_ID = Object.fromEntries(CATEGORIES.flatMap((c) => c.checks.map((k) => [k.id, k])));
+export const TOTAL_CHECKS = Object.keys(CHECK_BY_ID).length;
+
+export function verifiedCount(result) {
+  return Object.keys(result.status).filter((id) => (result.auto && result.auto[id]) || (result.manual && result.manual[id])).length;
+}
+
+export function priorityOf(k) {
+  if ((k.impact === 3 && k.effort <= 2) || (k.impact === 2 && k.effort === 1)) return { label: "Priorità alta", tone: "bad" };
+  if (k.impact === 1 && k.effort >= 2) return { label: "Priorità bassa", tone: "low" };
+  return { label: "Priorità media", tone: "warn" };
+}
+
+// Riepilogo in linguaggio semplice: cosa funziona, cosa non va, da dove partire.
+export function buildSummary(result) {
+  const { model, status } = result;
+  const subject = result.display || result.domain;
+  const score = overallScore(model, status);
+  const b = band(score);
+  const areas = CATEGORIES.map((c) => ({ c, s: categoryScore(c, status) }));
+  const best = [...areas].sort((x, y) => y.s - x.s)[0];
+  const worst = [...areas].sort((x, y) => x.s - y.s)[0];
+  const tail = {
+    good: "è solida",
+    warn: "ha buone basi, ma con lacune che frenano contatti e vendite",
+    bad: "è critica: oggi si perdono molte occasioni di essere trovati e scelti",
+  }[b.tone];
+  const headline = `La visibilità online di ${subject} ${tail} (${score}/100). Il punto più forte è ${best.c.name} (${best.s}), il più debole è ${worst.c.name} (${worst.s}).`;
+
+  const problems = failedChecks(status, model)
+    .sort((x, y) => y.impact * y.weight - x.impact * x.weight || x.effort - y.effort)
+    .slice(0, 3);
+
+  const strengths = [];
+  CATEGORIES.forEach((c) =>
+    c.checks.forEach((k) => {
+      if (status[k.id]) strengths.push({ ...k, cat: c, weight: c.weights[model] });
+    })
+  );
+  strengths.sort((x, y) => y.impact * y.weight - x.impact * x.weight);
+
+  const start = quickWins(status, model)[0] || problems[0] || null;
+  return { headline, problems, strengths: strengths.slice(0, 3), start };
+}
+
 export function buildPlan(result) {
-  const { domain, model, status } = result;
+  const { model, status } = result;
+  const display = result.display || result.domain;
   const modelLabel = MODELS.find((m) => m.id === model).label;
   const score = overallScore(model, status);
+  const summary = buildSummary(result);
   const wins = quickWins(status, model);
   const winIds = new Set(wins.map((k) => k.id));
   const failed = failedChecks(status, model).filter((k) => !winIds.has(k.id));
@@ -99,10 +148,13 @@ export function buildPlan(result) {
   const date = new Date().toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
 
   const L = [];
-  L.push(`PIANO D'AZIONE – VISIBILITÀ ONLINE`);
-  L.push(`Azienda/dominio: ${domain}`);
+  L.push("PIANO D'AZIONE – VISIBILITÀ ONLINE");
+  L.push(`Azienda: ${display}`);
+  if (result.web) L.push(`Sito web: ${result.web}`);
+  (result.channels || []).forEach((c) => L.push(`${TYPE_LABEL[c.type] || "Canale"}: ${c.url || c.label}`));
   L.push(`Modello di business: ${modelLabel}`);
   L.push(`Data: ${date}`);
+  L.push(`Affidabilità dei dati: ${verifiedCount(result)} controlli su ${TOTAL_CHECKS} verificati, gli altri sono stimati.`);
   L.push("");
   L.push(`PUNTEGGIO GLOBALE: ${score}/100 (${band(score).label})`);
   CATEGORIES.forEach((c) => {
@@ -117,17 +169,42 @@ export function buildPlan(result) {
     L.push(`- LCP ${fmtMs(p.lcp)} (${p.lcpSource}) · CLS ${fmtCls(p.cls)} (${p.clsSource}) · ${p.inp != null ? "INP " + p.inp + " ms (utenti reali)" : "TBT " + (p.tbt != null ? Math.round(p.tbt) + " ms (laboratorio)" : "n.d.")}`);
   }
   L.push("");
+  L.push("IN SINTESI");
+  L.push(summary.headline);
+  if (summary.strengths.length) {
+    L.push("Cosa funziona:");
+    summary.strengths.forEach((k) => L.push(`- ${k.label}`));
+  }
+  if (summary.problems.length) {
+    L.push("Cosa non va (i problemi che pesano di più):");
+    summary.problems.forEach((k, i) => {
+      L.push(`${i + 1}. ${k.label}: ${k.fail}`);
+      L.push(`   Perché conta: ${k.why}`);
+    });
+  }
+  L.push("");
   L.push("FASE 1 · 0-30 GIORNI – QUICK WINS");
   if (wins.length === 0) L.push("- Nessun intervento rapido aperto.");
-  wins.forEach((k, i) => L.push(`${i + 1}. [${k.cat.short}] ${k.fix}`));
+  wins.forEach((k, i) => {
+    L.push(`${i + 1}. [${k.cat.short}] ${k.fix}`);
+    L.push(`   Perché: ${k.why}`);
+    k.how.forEach((h, j) => L.push(`   ${String.fromCharCode(97 + j)}) ${h}`));
+    L.push(`   Tempo indicativo: ${TIME[k.effort]}`);
+  });
   L.push("");
   L.push("FASE 2 · 30-60 GIORNI – INTERVENTI STRUTTURALI");
   if (mid.length === 0) L.push("- Nessun intervento in questa fase.");
-  mid.forEach((k) => L.push(`- [${k.cat.short}] ${k.fix} (impatto ${LEVEL[k.impact].toLowerCase()}, sforzo ${LEVEL[k.effort].toLowerCase()})`));
+  mid.forEach((k) => {
+    L.push(`- [${k.cat.short}] ${k.fix} (${priorityOf(k).label.toLowerCase()}, tempo indicativo: ${TIME[k.effort]})`);
+    L.push(`  Perché: ${k.why}`);
+  });
   L.push("");
   L.push("FASE 3 · 60-90 GIORNI – CONSOLIDAMENTO");
   if (late.length === 0) L.push("- Nessun intervento in questa fase.");
-  late.forEach((k) => L.push(`- [${k.cat.short}] ${k.fix}`));
+  late.forEach((k) => {
+    L.push(`- [${k.cat.short}] ${k.fix} (${priorityOf(k).label.toLowerCase()}, tempo indicativo: ${TIME[k.effort]})`);
+    L.push(`  Perché: ${k.why}`);
+  });
   L.push("");
   L.push("INDICAZIONI STRATEGICHE PER AREA");
   [...CATEGORIES]

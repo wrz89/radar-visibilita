@@ -1,4 +1,5 @@
 // Modelli di business, aree di audit, controlli e consigli strategici.
+import { EXPLAIN } from "./explain.js";
 
 export const MODELS = [
   { id: "local", label: "Attività locale", hint: "officine, negozi, studi" },
@@ -123,3 +124,6 @@ export const LOADING_STEPS = [
 ];
 
 export const EXAMPLE = { domain: "officinarossi.it", model: "local" };
+
+// Aggiunge a ogni controllo "why" (perché conta) e "how" (passi per risolverlo).
+CATEGORIES.forEach((c) => c.checks.forEach((k) => Object.assign(k, EXPLAIN[k.id])));

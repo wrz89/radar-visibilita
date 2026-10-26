@@ -8,7 +8,7 @@ export default function LoadingPanel({ domain, progress, step, real }) {
         <div className="min-w-0">
           <p className="font-display text-lg font-semibold text-ink">Analisi di {domain}</p>
           <p className="text-sm text-muted">{LOADING_STEPS[Math.min(step, LOADING_STEPS.length - 1)]}…</p>
-          {real && <p className="mt-1 text-xs text-muted">Test reale su Google PageSpeed: servono di solito 20-40 secondi.</p>}
+          {real && <p className="mt-1 text-xs text-muted">Test reale su Google PageSpeed e lettura del sito: servono di solito 20-40 secondi.</p>}
         </div>
         <span className="ml-auto font-mono text-sm tabular-nums text-muted">{Math.round(progress)}%</span>
       </div>

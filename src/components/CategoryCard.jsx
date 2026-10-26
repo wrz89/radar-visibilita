@@ -1,17 +1,19 @@
 import { TONE, band, categoryScore } from "../lib/scoring.js";
 import { TIME } from "../data/explain.js";
 import { measuredNote } from "../lib/psi.js";
+import { scanNote } from "../lib/siteScan.js";
 import Pill from "./Pill.jsx";
 import Level from "./Level.jsx";
 import Priority from "./Priority.jsx";
 
 function Tag({ auto, manual }) {
+  if (auto === "scan") return <span className="ml-2 rounded bg-accent-soft px-1.5 py-0.5 align-middle font-mono text-[10px] font-semibold text-accent" title="Letto dalla home del sito">SITO</span>;
   if (auto) return <span className="ml-2 rounded bg-accent-soft px-1.5 py-0.5 align-middle font-mono text-[10px] font-semibold text-accent" title="Verificato con dati reali di PageSpeed Insights">PSI</span>;
   if (manual) return <span className="ml-2 rounded bg-good-soft px-1.5 py-0.5 align-middle font-mono text-[10px] font-semibold text-good" title="Verificato da te">Verificato</span>;
   return null;
 }
 
-export default function CategoryCard({ cat, model, status, auto = {}, manual = {}, psi = null, open, onToggle, onFlip }) {
+export default function CategoryCard({ cat, model, status, auto = {}, manual = {}, psi = null, scan = null, open, onToggle, onFlip }) {
   const score = categoryScore(cat, status);
   const b = band(score);
   const failed = cat.checks.filter((k) => !status[k.id]).length;
@@ -40,7 +42,7 @@ export default function CategoryCard({ cat, model, status, auto = {}, manual = {
             <ul className="divide-y divide-line">
               {cat.checks.map((k) => {
                 const ok = status[k.id];
-                const note = auto[k.id] ? measuredNote(k.id, psi) : null;
+                const note = auto[k.id] === "scan" ? scanNote(k.id, scan) : auto[k.id] ? measuredNote(k.id, psi) : null;
                 return (
                   <li key={k.id} className="flex gap-3 py-3">
                     <button

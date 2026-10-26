@@ -21,6 +21,7 @@ const GROUPS = [
 ];
 
 function Source({ id, auto, manual }) {
+  if (auto[id] === "scan") return <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent">SITO</span>;
   if (auto[id]) return <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent">PSI</span>;
   if (manual[id]) return <span className="rounded bg-good-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold text-good">Verificato</span>;
   return <span className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted">Stima</span>;
@@ -59,6 +60,7 @@ export default function ChannelsPanel({ result, onSet }) {
                 <a href={c.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-2 px-3 py-1 text-sm hover:border-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted">{TYPE_LABEL[c.type]}</span>
                   <span className="max-w-[16rem] truncate font-medium">{c.label}</span>
+                  {c.discovered && <span className="text-xs text-muted">trovato nel sito</span>}
                   <span aria-hidden="true">↗</span>
                 </a>
               ) : (
@@ -104,7 +106,7 @@ export default function ChannelsPanel({ result, onSet }) {
         })}
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted">
-        Google, Facebook e Instagram non permettono di leggere in automatico le loro pagine da un sito esterno: per questo la verifica è guidata. Il sito web, invece, viene misurato da PageSpeed Insights.
+        Google, Facebook e Instagram non permettono di leggere in automatico le loro pagine da un sito esterno: per questo la verifica è guidata. I profili social collegati dal sito vengono trovati in automatico; il sito web è misurato da PageSpeed Insights e letto nella home.
       </p>
     </section>
   );

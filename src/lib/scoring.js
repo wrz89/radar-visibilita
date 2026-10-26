@@ -151,7 +151,7 @@ export function buildPlan(result) {
   L.push("PIANO D'AZIONE – VISIBILITÀ ONLINE");
   L.push(`Azienda: ${display}`);
   if (result.web) L.push(`Sito web: ${result.web}`);
-  (result.channels || []).forEach((c) => L.push(`${TYPE_LABEL[c.type] || "Canale"}: ${c.url || c.label}`));
+  (result.channels || []).forEach((c) => L.push(`${TYPE_LABEL[c.type] || "Canale"}: ${c.url || c.label}${c.discovered ? " (trovato nel sito)" : ""}`));
   L.push(`Modello di business: ${modelLabel}`);
   L.push(`Data: ${date}`);
   L.push(`Affidabilità dei dati: ${verifiedCount(result)} controlli su ${TOTAL_CHECKS} verificati, gli altri sono stimati.`);
@@ -167,6 +167,14 @@ export function buildPlan(result) {
     L.push("DATI REALI PAGESPEED INSIGHTS (mobile)");
     L.push(`- Performance ${p.perf ?? "n.d."}/100 · SEO tecnica ${p.seo ?? "n.d."}/100 · Best practice ${p.bestPractices ?? "n.d."}/100`);
     L.push(`- LCP ${fmtMs(p.lcp)} (${p.lcpSource}) · CLS ${fmtCls(p.cls)} (${p.clsSource}) · ${p.inp != null ? "INP " + p.inp + " ms (utenti reali)" : "TBT " + (p.tbt != null ? Math.round(p.tbt) + " ms (laboratorio)" : "n.d.")}`);
+  }
+  if (result.scan) {
+    const x = result.scan;
+    L.push("");
+    L.push("LETTURA DEL SITO (home page)");
+    L.push(`- H1: ${x.h1.count} · dati strutturati: ${x.schemaTypes.length ? x.schemaTypes.slice(0, 4).join(", ") : "nessuno"} · sitemap: ${x.sitemap.found ? "sì" : "no"}`);
+    L.push(`- Modulo contatto: ${x.forms.minFields === null ? "nessuno" : x.forms.minFields + " campi"} · tracciamento: ${x.analytics.ga4 || x.analytics.gtm || x.analytics.ua ? "presente" : "assente"} · social collegati: ${x.socials.length}`);
+    if (x.jsRendered) L.push("- Il sito carica i contenuti con JavaScript: lettura parziale.");
   }
   L.push("");
   L.push("IN SINTESI");

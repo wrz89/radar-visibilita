@@ -7,6 +7,7 @@ import {
 } from "./lib/scoring.js";
 import { collectInputs, displayName, seedKey } from "./lib/channels.js";
 import { PSI_KEY, fetchPsi } from "./lib/psi.js";
+import { scanSite } from "./lib/siteScan.js";
 import Gauge from "./components/Gauge.jsx";
 import Pill from "./components/Pill.jsx";
 import Level from "./components/Level.jsx";
@@ -16,6 +17,7 @@ import ChannelsPanel from "./components/ChannelsPanel.jsx";
 import CategoryCard from "./components/CategoryCard.jsx";
 import LoadingPanel from "./components/LoadingPanel.jsx";
 import PsiPanel from "./components/PsiPanel.jsx";
+import ScanPanel from "./components/ScanPanel.jsx";
 
 const EMPTY = { name: "", web: "", google: "", facebook: "", instagram: "", linkedin: "", other: "" };
 
@@ -55,6 +57,7 @@ export default function App() {
     auto: {},
     manual: {},
     psi: null,
+    scan: null,
     notice: "",
     isExample: true,
   }));
@@ -74,42 +77,64 @@ export default function App() {
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const minTime = reduce ? 600 : 3600;
     const start = Date.now();
-    const job = { done: !realActive, data: null, error: null };
+    const job = { psiDone: !realActive, scanDone: !wantsReal, psi: null, psiErr: null, scan: null, scanErr: null };
     if (realActive) {
       fetchPsi(pending.web)
-        .then((d) => { job.data = d; })
-        .catch((e) => { job.error = e; })
-        .finally(() => { job.done = true; });
+        .then((d) => { job.psi = d; })
+        .catch((e) => { job.psiErr = e; })
+        .finally(() => { job.psiDone = true; });
+    }
+    if (wantsReal) {
+      scanSite(pending.web)
+        .then((d) => { job.scan = d; })
+        .catch((e) => { job.scanErr = e; })
+        .finally(() => { job.scanDone = true; });
     }
     const t = setInterval(() => {
       const el = Date.now() - start;
-      if (job.done && el >= minTime) {
+      const jobDone = job.psiDone && job.scanDone;
+      if (jobDone && el >= minTime) {
         clearInterval(t);
         setProgress(100);
         const status = simulate(seedKey(pending), pending.model);
         const auto = {};
+        const notes = [];
         let psi = null;
-        let notice = "";
-        if (job.data) {
-          psi = job.data;
-          Object.entries(job.data.checks).forEach(([id, ok]) => { status[id] = ok; auto[id] = true; });
-        } else if (job.error) {
-          notice = job.error.message + " Il risultato mostrato è una stima.";
-        } else if (wantsReal && !PSI_KEY) {
-          notice = "Chiave PageSpeed non configurata in questa versione: il risultato mostrato è una stima.";
-        } else if (!wantsReal) {
-          notice = "Senza il sito web non posso misurare velocità e SEO tecnica: quei controlli restano stimati. Usa la verifica rapida dei canali per confermare gli altri.";
+        const scan = job.scan;
+        if (scan) {
+          Object.entries(scan.checks || {}).forEach(([id, ok]) => { status[id] = ok; auto[id] = "scan"; });
+          if (scan.jsRendered) notes.push("Il sito carica i contenuti con JavaScript: dall'HTML leggo poco, quindi i controlli sul contenuto restano stimati.");
+        } else if (job.scanErr) {
+          notes.push(job.scanErr.message + " I controlli sul contenuto del sito restano stimati.");
         }
-        setResult({ ...pending, display: displayName(pending), status, auto, manual: {}, psi, notice, isExample: false });
+        if (job.psi) {
+          psi = job.psi;
+          Object.entries(job.psi.checks).forEach(([id, ok]) => { status[id] = ok; auto[id] = "psi"; });
+        } else if (job.psiErr) {
+          notes.push(job.psiErr.message + " Velocità e Core Web Vitals restano stimati.");
+        } else if (wantsReal && !PSI_KEY) {
+          notes.push("Chiave PageSpeed non configurata in questa versione: velocità e Core Web Vitals restano stimati.");
+        } else if (!wantsReal) {
+          notes.push("Senza il sito web non posso misurare velocità e SEO tecnica né leggere i contenuti: quei controlli restano stimati. Usa la verifica rapida dei canali per confermare gli altri.");
+        }
+        // Social trovati nel sito: si aggiungono solo se l'utente non ha già indicato quel canale.
+        const channels = [...(pending.channels || [])];
+        if (scan) {
+          scan.socials.forEach((x) => {
+            if (!channels.some((c) => c.type === x.type)) channels.push({ type: x.type, label: x.label, url: x.url, discovered: true });
+          });
+        }
+        const notice = notes.join("\n");
+        setResult({ ...pending, channels, display: displayName(pending), status, auto, manual: {}, psi, scan, notice, isExample: false });
         const weakest = [...CATEGORIES].sort((a, b) => categoryScore(a, status) - categoryScore(b, status))[0];
         setOpenCat(weakest.id);
         setShowPlan(false);
         setPhase("done");
         return;
       }
-      const p = job.done
+      const p = jobDone
         ? Math.min(100, (el / minTime) * 100)
-        : realActive
+        : wantsReal
           ? Math.min(92, 92 * (1 - Math.exp(-el / 14000)))
           : Math.min(100, (el / minTime) * 100);
       setProgress((prev) => Math.max(prev, p));
@@ -230,7 +255,7 @@ export default function App() {
           {error && <p className="mt-3 text-sm font-medium text-bad" role="alert">{error}</p>}
         </form>
 
-        {busy && pending && <LoadingPanel domain={displayName(pending)} progress={progress} step={step} real={realActive} />}
+        {busy && pending && <LoadingPanel domain={displayName(pending)} progress={progress} step={step} real={wantsReal} />}
 
         {phase === "done" && (
           <>
@@ -240,7 +265,7 @@ export default function App() {
               </p>
             )}
             {result.notice && (
-              <p className="rounded-lg border border-line bg-warn-soft px-4 py-3 text-sm text-warn" role="status">{result.notice}</p>
+              <p className="whitespace-pre-line rounded-lg border border-line bg-warn-soft px-4 py-3 text-sm text-warn" role="status">{result.notice}</p>
             )}
 
             {/* PUNTEGGIO */}
@@ -279,7 +304,7 @@ export default function App() {
                   })}
                 </ul>
                 <p className="mt-4 text-xs leading-relaxed text-muted">
-                  I controlli con etichetta PSI sono misurati da Google, quelli «Verificato» li hai confermati tu, gli altri sono stimati. Correggili con la verifica rapida dei canali o con i bottoni OK/KO: punteggi, quick wins e piano si aggiornano subito.
+                  I controlli con etichetta PSI sono misurati da Google, quelli «Sito» letti dalla home, quelli «Verificato» li hai confermati tu, gli altri sono stimati. Correggili con la verifica rapida dei canali o con i bottoni OK/KO: punteggi, quick wins e piano si aggiornano subito.
                 </p>
               </div>
             </section>
@@ -287,6 +312,8 @@ export default function App() {
             <Summary summary={summary} checked={checkedIds} verified={verified} total={TOTAL_CHECKS} />
 
             {result.psi && <PsiPanel psi={result.psi} />}
+
+            {result.scan && <ScanPanel scan={result.scan} />}
 
             <ChannelsPanel result={result} onSet={setCheck} />
 
@@ -326,7 +353,7 @@ export default function App() {
               {[...CATEGORIES].sort((a, b2) => b2.weights[result.model] - a.weights[result.model]).map((c) => (
                 <div key={c.id} id={"cat-" + c.id} className="scroll-mt-4">
                   <CategoryCard
-                    cat={c} model={result.model} status={result.status} auto={result.auto} manual={result.manual} psi={result.psi}
+                    cat={c} model={result.model} status={result.status} auto={result.auto} manual={result.manual} psi={result.psi} scan={result.scan}
                     open={openCat === c.id}
                     onToggle={() => setOpenCat(openCat === c.id ? null : c.id)} onFlip={flip}
                   />
@@ -364,7 +391,7 @@ export default function App() {
         )}
 
         <footer className="pb-4 text-xs text-muted">
-          Performance, Core Web Vitals, HTTPS, esperienza mobile e title/meta sono letti da Google PageSpeed Insights quando si inserisce un sito web. Scheda Google e profili social non si possono leggere in automatico: si verificano con le domande guidate. I controlli non verificati sono stimati in modo deterministico (stessi dati e modello, stesso risultato).
+          Performance, Core Web Vitals, HTTPS, esperienza mobile e title/meta sono letti da Google PageSpeed Insights; H1, dati strutturati, sitemap, moduli, tracciamento, contatti e link ai social sono letti dalla home del sito. Scheda Google e profili social non si possono leggere in automatico: si verificano con le domande guidate. I controlli non verificati sono stimati in modo deterministico (stessi dati e modello, stesso risultato).
         </footer>
       </main>
     </div>

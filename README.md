@@ -37,7 +37,7 @@ Basta anche un solo campo, ma più canali si aggiungono più l'analisi è comple
 | Campo | Cosa succede |
 |---|---|
 | Nome azienda | Titolo del report |
-| Sito web | Misurato in automatico da PageSpeed Insights |
+| Sito web | Misurato da PageSpeed Insights e letto nella home (social, H1, dati strutturati, sitemap, moduli, tracciamento) |
 | Scheda Google, Facebook, Instagram, LinkedIn | Mostrati nel report con link di apertura e verifica guidata |
 | Altri link | TikTok, YouTube, altri siti: si possono incollare più link separati da spazio |
 
@@ -66,6 +66,15 @@ Inserendo un **dominio** (es. `gommistaverdi.it`) il tool interroga l'API gratui
 Vengono mostrati anche i punteggi Performance, SEO tecnica e Best practice.
 
 Tutti gli altri controlli (reputazione, social, contenuti, backlink, ecc.) sono **stimati in modo deterministico** dal dominio e dal modello (stesso input, stesso risultato). Vanno verificati a mano e corretti con il bottone OK/KO: punteggi, quick wins e piano si aggiornano subito. Se Google non risponde, o si inserisce un nome azienda invece di un dominio, il tool ripiega sulla simulazione e lo segnala con un avviso.
+
+## Lettura della home (funzione site-scan)
+
+Il browser non può leggere siti di altri domini, quindi una Edge Function Supabase (`supabase/functions/site-scan`) scarica la home, `robots.txt` e la sitemap e restituisce solo i segnali estratti (mai l'HTML). Verifica in automatico, con etichetta **SITO**: H1, dati strutturati, sitemap, lunghezza del modulo di contatto, tag di tracciamento, link ai social e contatti rapidi. I profili social trovati nel sito vengono aggiunti ai canali ("trovato nel sito").
+
+- Si imposta KO solo quando l'assenza è certa; se un segnale presente non basta a dimostrare che il controllo è superato, resta la stima.
+- Siti che caricano tutto con JavaScript, o che bloccano i bot, non sono leggibili: il tool lo segnala e lascia le stime.
+- Protezioni: accetta solo richieste dal sito su GitHub Pages e da localhost, 20 richieste ogni 10 minuti per IP, blocco degli indirizzi interni (SSRF), limite di dimensione e tempo. L'origine è verificabile solo da browser: non è un'autenticazione.
+- Deploy: `supabase functions deploy site-scan --no-verify-jwt` (o dal pannello Supabase). L'URL della funzione è in `src/lib/siteScan.js`.
 
 ## Configurare la chiave PageSpeed
 
@@ -103,9 +112,10 @@ src/
   data/audit.js          modelli, aree, controlli, consigli strategici
   lib/scoring.js         simulazione, punteggi, quick wins, piano d'azione
   lib/psi.js             chiamata a PageSpeed Insights e mappatura sui controlli
+  lib/siteScan.js        chiamata alla funzione site-scan e note sui controlli letti dal sito
   lib/channels.js        riconoscimento dei link (sito, Google, social) e raccolta del modulo
   data/explain.js        perché conta e come risolvere, per ogni controllo
-  components/            Gauge, Pill, Level, CategoryCard, LoadingPanel, PsiPanel, Summary, ChannelsPanel, Priority
+  components/            Gauge, Pill, Level, CategoryCard, LoadingPanel, PsiPanel, ScanPanel, Summary, ChannelsPanel, Priority
   App.jsx                interfaccia principale
   index.css              token colore (tema chiaro e scuro) e stili base
 ```
@@ -114,6 +124,6 @@ Per modificare controlli, pesi o consigli basta intervenire su `src/data/audit.j
 
 ## Evoluzioni possibili
 
-1. Lettura di H1, dati strutturati, sitemap e link della home tramite una funzione lato server (il browser non può leggere siti di altri domini).
+1. Scheda Google tramite Places API (chiave solo lato server, con tetto di quota).
 2. Salvataggio degli audit (es. Supabase) per confrontare i punteggi nel tempo.
 3. Export del piano in PDF.

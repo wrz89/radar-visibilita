@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { MODELS, CATEGORIES, EXAMPLE } from "./data/audit.js";
+import { MODELS, CATEGORIES, EXAMPLE, LOADING_STEPS } from "./data/audit.js";
 import { simulate, normalizeDomain, categoryScore, overallScore, band, quickWins, buildPlan, failedChecks, TONE } from "./lib/scoring.js";
 import Gauge from "./components/Gauge.jsx";
 import Pill from "./components/Pill.jsx";
